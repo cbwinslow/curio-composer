@@ -1,8 +1,11 @@
-fastapi
-uvicorn
-spleeter
-pydantic
-python-multipart
-music21
-ffmpeg-python
-openai-whisper # or other open-source LLM for lyrics
+fastapi>=0.95.0
+uvicorn>=0.22.0
+spleeter>=2.3.0
+pydantic>=1.10.9
+python-multipart>=0.0.6
+music21>=8.0.0
+ffmpeg-python>=0.2.0
+openai-whisper>=1.0.0 # or other open-source LLM for lyrics
+typing-extensions>=4.5.0
+python-dotenv>=1.0.0
+pytest>=7.4.0
