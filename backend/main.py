@@ -1,15 +1,46 @@
 """Main FastAPI application for Karaoke Stem Separator."""
+
+# pylint: disable=import-error
 # type: ignore[reportMissingImports]
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Optional
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from .utils.spleeter_utils import separate_stems
+
+
+class UploadResponse(BaseModel):
+    status: str
+    filename: Optional[str] = None
+    link: Optional[str] = None
+
+
+class SeparateResponse(BaseModel):
+    status: str
+    files: list[str]
+
+
+class KaraokeResponse(BaseModel):
+    status: str
+
+
+class LyricsResponse(BaseModel):
+    lyrics: list[str]
+    timestamps: list[str]
+
+
+class VideoResponse(BaseModel):
+    status: str
+
+
+class MusicResponse(BaseModel):
+    status: str
 
 
 app = FastAPI()
@@ -24,82 +55,68 @@ app.add_middleware(
 )
 
 
-@app.get("/")
-def read_root() -> dict[str, str]:
+@app.get("/", response_model=UploadResponse)
+async def read_root() -> UploadResponse:
     """Root endpoint."""
-    return {"message": "Karaoke Stem Separator API"}
+    return UploadResponse(status="ok")
 
 
-@app.post("/upload/")
+@app.post("/upload/", response_model=UploadResponse)
 async def upload_media(
-    upload_file: Annotated[Optional[UploadFile], File(None)],
-    link: Annotated[Optional[str], Form(None)],
-) -> dict[str, str]:
+    upload_file: Optional[UploadFile] = File(None),
+    link: Optional[str] = Form(None),
+) -> UploadResponse:
     """Upload a media file or link for processing."""
-    uploads_dir = Path("uploads")
-    uploads_dir.mkdir(exist_ok=True)
-
     if upload_file is not None:
-        file_path = uploads_dir / upload_file.filename
+        uploads_dir = Path("uploads")
+        uploads_dir.mkdir(exist_ok=True)
+        destination = uploads_dir / upload_file.filename
         content = await upload_file.read()
-        file_path.write_bytes(content)
-        return {"status": "received", "filename": upload_file.filename}
+        destination.write_bytes(content)
+        return UploadResponse(status="received", filename=upload_file.filename)
 
     if link is not None:
-        assert isinstance(link, str)
-        return {"status": "received_link", "link": link}
+        return UploadResponse(status="received_link", link=link)
 
     raise HTTPException(status_code=400, detail="No file or link provided")
 
 
-@app.post("/separate/")
+@app.post("/separate/", response_model=SeparateResponse)
 async def separate_audio(
-    filename: Annotated[str, Form(...)],
-    stems: Annotated[int, Form(2)],
-) -> dict[str, str | list[str]]:
+    filename: str = Form(...),
+    stems: int = Form(2),
+) -> SeparateResponse:
     """Separate audio stems using Spleeter."""
     uploads_dir = Path("uploads")
-    input_file = uploads_dir / filename
-    if not input_file.exists():
+    input_path = uploads_dir / filename
+    if not input_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
 
-    separated_dir = Path("separated")
-    separated_dir.mkdir(exist_ok=True)
-    files = separate_stems(str(input_file), str(separated_dir), stems)
-    return {"status": "separated", "files": files}
+    output_dir = Path("separated")
+    output_dir.mkdir(exist_ok=True)
+    files = separate_stems(str(input_path), str(output_dir), stems)
+    return SeparateResponse(status="separated", files=files)
 
 
-@app.post("/karaoke/")
-async def make_karaoke(
-    _filename: Annotated[str, Form(...)],
-) -> dict[str, str]:
+@app.post("/karaoke/", response_model=KaraokeResponse)
+async def make_karaoke(_filename: str = Form(...)) -> KaraokeResponse:
     """Create karaoke version."""
-    # Placeholder logic
-    return {"status": "karaoke_ready"}
+    return KaraokeResponse(status="karaoke_ready")
 
 
-@app.post("/transcribe_lyrics/")
-async def transcribe_lyrics(
-    _filename: Annotated[str, Form(...)],
-) -> dict[str, list[str]]:
+@app.post("/transcribe_lyrics/", response_model=LyricsResponse)
+async def transcribe_lyrics(_filename: str = Form(...)) -> LyricsResponse:
     """Transcribe lyrics and timestamps."""
-    # Placeholder logic
-    return {"lyrics": [], "timestamps": []}
+    return LyricsResponse(lyrics=[], timestamps=[])
 
 
-@app.post("/generate_video/")
-async def generate_video(
-    _filename: Annotated[str, Form(...)],
-) -> dict[str, str]:
+@app.post("/generate_video/", response_model=VideoResponse)
+async def generate_video(_filename: str = Form(...)) -> VideoResponse:
     """Generate karaoke video."""
-    # Placeholder logic
-    return {"status": "video_ready"}
+    return VideoResponse(status="video_ready")
 
 
-@app.post("/transcribe_music/")
-async def transcribe_music(
-    _filename: Annotated[str, Form(...)],
-) -> dict[str, str]:
+@app.post("/transcribe_music/", response_model=MusicResponse)
+async def transcribe_music(_filename: str = Form(...)) -> MusicResponse:
     """Transcribe music to tabs/MIDI/notation."""
-    # Placeholder logic
-    return {"status": "music_transcribed"}
+    return MusicResponse(status="music_transcribed")
