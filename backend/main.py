@@ -1,9 +1,10 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
 import os
+from utils.spleeter_utils import separate_stems as spleeter_separate
 
 app = FastAPI()
 
@@ -22,13 +23,28 @@ def read_root():
 # Placeholder endpoints for MVP
 @app.post("/upload/")
 async def upload_media(file: UploadFile = File(...), link: Optional[str] = Form(None)):
-    # Save file or download from link
-    return {"status": "received"}
+    UPLOAD_DIR = "uploads"
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    if file:
+        file_location = os.path.join(UPLOAD_DIR, file.filename)
+        with open(file_location, "wb") as f:
+            content = await file.read()
+            f.write(content)
+        return {"status": "received", "filename": file.filename}
+    elif link:
+        return {"status": "received_link", "link": link}
+    else:
+        raise HTTPException(status_code=400, detail="No file or link provided")
 
 @app.post("/separate/")
-async def separate_stems(filename: str):
-    # Call Spleeter utils
-    return {"status": "separated"}
+async def separate_stems(filename: str = Form(...), stems: int = Form(2)):
+    input_filepath = os.path.join("uploads", filename)
+    if not os.path.exists(input_filepath):
+        raise HTTPException(status_code=404, detail="File not found")
+    output_dir = "separated"
+    os.makedirs(output_dir, exist_ok=True)
+    files = spleeter_separate(input_filepath, output_dir, stems)
+    return {"status": "separated", "files": files}
 
 @app.post("/karaoke/")
 async def make_karaoke(filename: str):
