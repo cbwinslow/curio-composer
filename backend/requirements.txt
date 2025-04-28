@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+spleeter
+pydantic
+python-multipart
+music21
+ffmpeg-python
+openai-whisper # or other open-source LLM for lyrics
